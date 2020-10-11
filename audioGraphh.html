@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>animating a waveform</title>
+<script type="text/javascript">
+  var filters = [];
+  var ctx = window.AudioContext;
+  var audioContext = new ctx;
+  var source;
+  var player;
+  var canvas, canvasContext;
+  var canvas1, canvasContext1;
+var grdFrenchFlag;
+     var analyser1;
+     var analyser2;
+     var volume;
+  var dataArray1;
+  var dataArray2;
+  var stereoPanner;
+  var frequencyValue1;
+  var frequencyValue2 ;
+  var eq = audioContext.createBiquadFilter();
+//var player = document.getElementById('myPlayer');
+var volume;
+  var sound = document.getElementById('soundFile');
+   
+  var width, height;
+  var width1, height1;
+   var filters = [];
+   var musicOn = true;
+   var musicButton;
+   var compressorButton;
+var compressorOn = false; 
+// Set filters
+
+  window.onload = function () {
+  audioContext = new ctx;
+    canvas = document.querySelector('#CanvasFrequency');
+    width = canvas.width;
+    height = canvas.height;
+    canvasContext = canvas.getContext('2d');
+    canvas1 = document.querySelector('#waveform');
+    width1 = canvas1.width;
+    height1 = canvas1.height;
+    compressorButton = document.querySelector("#compressorButton")
+    canvasContext1 = canvas1.getContext('2d');
+    frequencyValue1 = document.querySelector("#fft1");
+        frequencyValue2 = document.querySelector("#fft2");
+ }
+   function active (evt) {
+if (compressorOn) {
+  compressor.disconnect(audioContext.destination);
+
+  analyser2.disconnect(compressor);
+  analyser2.connect(audioContext.destination);
+    compressorButton.innerHTML = "Activate"
+}
+else{
+  analyser2.disconnect(audioContext.destination)
+  analyser2.connect(compressor);
+  compressor.connect(audioContext.destination)
+  compressorButton.innerHTML = "Deactivate"
+}
+compressorOn = !compressorOn
+
+}   
+
+function loadSound() {
+  var player = document.querySelector("#myPlayer")
+    var sound = document.getElementById('soundFile');
+   soundUrl = sound.value;
+  player.cross  
+  var request = new XMLHttpRequest();
+
+    request.open('GET',soundUrl,true)
+  request.responseType = "arraybuffer"
+    
+    audioContext.decodeAudioData("request.response",function (buffer) {
+      console.log("sound decoded");
+      decodedSound = buffer;
+    },function(e) {
+      console.log("error")
+    })
+  request.send()
+  playXhr(buffer);
+  buildAudioGraph();
+}
+
+ function playXhr(buffer) {
+  var bufferSource = audioContext.createBufferSource();
+  bufferSource.buffer = buffer;
+  source.disconnect(filters[0]);
+  bufferSource.connect(filters[0]);
+  bufferSource.start();
+  // body...
+}
+
+ function buildAudioGraph() {
+ player = document.getElementById('myPlayer');
+ source = audioContext.createMediaElementSource(player);
+
+player.onplay = function () {
+    audioContext.resume();
+  requestAnimationFrame(visualize1)
+}  
+analyser1 = audioContext.createAnalyser();
+
+analyser1.fftSize = frequencyValue1.value;
+analyser2 = audioContext.createAnalyser();
+
+analyser2.fftSize = frequencyValue2.value;
+
+bufferLength1 = analyser1.frequencyBinCount;
+bufferLength2 = analyser2.frequencyBinCount;
+dataArray1 = new Uint8Array(bufferLength1);
+dataArray2 = new Uint8Array(bufferLength2);
+[60, 170, 350, 1000, 3500, 10000].forEach(function(freq, i) {
+   var eq = audioContext.createBiquadFilter();
+   eq.frequency.value = freq;
+   eq.type = "peaking";
+   eq.gain.value = 0;
+   filters.push(eq);
+});
+
+source.connect(filters[0]);
+for(var i = 0; i < filters.length - 1; i++) {
+   filters[i].connect(filters[i+1]);
+}
+volume = audioContext.createGain();
+volume.value = 1
+filters[filters.length - 1].connect(volume);
+stereoPanner = audioContext.createStereoPanner();
+
+volume.connect(stereoPanner);
+
+stereoPanner.connect(analyser1);
+compressor = audioContext.createDynamicsCompressor();
+analyser1.connect(analyser2)
+analyser2.connect(audioContext.destination)
+  }
+
+
+  function playSound() {
+    var player = document.querySelector("#myPlayer")
+    var sound = document.getElementById('soundFile');
+   player.src = sound.value;
+  buildAudioGraph();
+  }
+  function visualize1() {
+    canvasContext.clearRect(0, 0, width, height);
+  // Get the analyser data
+  analyser1.getByteFrequencyData(dataArray1);
+ 
+  var barWidth = width / bufferLength1;
+  var barHeight;
+  var x = 0;
+  // values go from 0 to 255 and the canvas heigt is 100. Let's rescale
+  // before drawing. This is the scale factor
+  var heightScale = height/128;
+  for(var i = 0; i < bufferLength1; i++) {
+    // between 0 and 255
+    barHeight = dataArray1[i];
+   
+   var grdFrenchFlag = canvasContext.createLinearGradient(400,200,0,0);
+         
+    grdFrenchFlag.addColorStop((
+    0.14285714285714285714285714285714),"violet");
+  grdFrenchFlag.addColorStop(0.14285714285714285714285714285714*2,'Indigo');
+  grdFrenchFlag.addColorStop((
+    0.14285714285714285714285714285714)*3,'blue');
+  grdFrenchFlag.addColorStop((
+    0.14285714285714285714285714285714)*4,'Green');
+  grdFrenchFlag.addColorStop((
+    0.14285714285714285714285714285714)*5,'Yellow');
+  grdFrenchFlag.addColorStop((
+    0.14285714285714285714285714285714)*6,'Orange');
+  grdFrenchFlag.addColorStop((
+    0.14285714285714285714285714285714)*7,'red');
+
+    // The color is red but lighter or darker depending on the value
+    canvasContext.fillStyle = grdFrenchFlag;
+    //canvasContext.fillStyle = hsl(0,100%,100%)
+    // scale from [0, 255] to the canvas height [0, height] pixels
+    barHeight *= heightScale;
+    // draw the bar
+    canvasContext.fillRect(x, height-barHeight/2, barWidth, barHeight/2);
+ 
+    // 1 is the number of pixels between bars - you can change it
+    x += barWidth + 1;
+  }
+  // clear the canvas
+  canvasContext1.clearRect(0,0,width1,height1);
+    canvasContext1.beginPath();
+        analyser2.getByteTimeDomainData(dataArray2);
+
+    var sliceWidth = width1 / bufferLength2;
+  var x = 0;
+  for(var i = 0; i < bufferLength2; i ++){
+    var v = dataArray2[i];
+    v = v / 255;
+    var y = height *v;
+    if (i === 0 ) {
+      canvasContext1.moveTo(x,y);
+    }
+    else{
+      canvasContext1.lineTo(x,y )
+    }
+    x += sliceWidth;
+  }
+  canvasContext1.lineTo(width1, height1/2)
+  canvasContext1.stroke();
+
+      
+  canvasContext1.strokeStyle = grdFrenchFlag;
+  // Get the analyser data
+  requestAnimationFrame(visualize1);
+}
+  function play(){
+player = document.getElementById('myPlayer');
+    musicButton = document.querySelector("#musicButton")
+    if (musicOn) {
+  player.play();
+  musicButton.innerHTML = "PLAY"
+requestAnimationFrame(visualize1);  
+}
+else{
+  player.pause();
+  musicButton.innerHTML = "pause"
+}
+musicOn = !musicOn
+
+}   
+// Set filters
+function changeGain(sliderVal,nbFilter) {
+   var value = parseFloat(sliderVal);
+  filters[nbFilter].gain.value = value;
+  // Updates output labels
+  var frequencyOutput = document.querySelector("#gain"+nbFilter);
+  frequencyOutput.value = value + " dB";
+}
+function changeVolume(sliderVal) {
+  Vvalue = parseFloat(sliderVal);
+  volume.gain.value = Vvalue;
+var volumeOutput = document.querySelector("#volumeGain");
+volumeOutput.value = Vvalue
+}
+function changeStereo(sliderVal) {
+  Svalue = parseFloat(sliderVal);
+  stereoPanner.pan.value = Svalue;
+var stereoOutput = document.querySelector("#stereoOutput");
+stereoOutput.value = Svalue
+}
+
+
+</script>
+	<style type="text/css">
+#CanvasFrequency{
+  background-color: black;
+border-radius: 5px solid black;
+border: 5px solid black;
+}
+#waveform{
+  background-color: black;
+border-radius: 5px solid black;
+border: 5px solid black;
+
+}
+input{
+  align-items: center;
+  margin-left: 50px;
+}
+#menu{
+border: 2px solid black;  
+  width: 300px;
+  padding: 10px;
+  margin: 20px; 
+}
+#fft{
+  background-color: grdFrenchFlag;
+border-radius: 1px solid black;
+border: 1px solid black;
+padding: 1px;
+  margin: 5px;
+  
+}
+#soundFile{
+ background-color: grdFrenchFlag;
+border-radius: 1px solid black;
+border: 1px solid black;
+padding: 1px;
+  margin: 5px;
+}
+#fft1{
+border-radius: 1px solid black;
+border: 1px solid black;
+padding: 1px;
+  margin: 5px;
+
+}
+#fft2{
+border-radius: 1px solid black;
+border: 1px solid black;
+padding: 1px;
+  margin: 5px;
+  
+}
+
+#buttons{
+  border: 1px solid black;
+  padding: 10px;
+  margin: 20px;
+  width: 425px;
+background-color: blue;
+}
+#frequency{
+	border: 3px solid darkgreen;
+background-image: -webkit-linear-gradient(darkgreen,lightgreen,green);;
+    border-radius: 5px;
+    margin: 30px;
+    font-style: blue;
+    padding: 10px;
+    width: 350px;
+    height:  200px;
+}
+#volumeDiv{
+  border: 3px solid blue;
+  float: right;
+  background-image: -webkit-linear-gradient(white,skyblue,blue,darkblue);
+    border-radius: 5px;
+    margin: 30px;
+    font-style: blue;
+    padding: 10px;
+    width: 300px; 
+}
+#audioGraph{
+  border: 3px solid blue;
+ margin: 30px;
+/* fallback image */
+/* Firefox 3.6+ */
+/* Safari 4+, Chrome 1+ */
+/* Safari 5.1+, Chrome 10+ */
+background-image: -webkit-linear-gradient(indigo,skyblue,blue,darkblue);
+/* Opera 11.10+ */
+background-image: -o-linear-gradient(#336666,
+#66cccc);
+
+    font-style: blue;
+    padding: 10px;
+    width: 900px; 
+}
+
+#controls{
+padding: 3px;
+margin: 4px;
+border: 1px solid black;
+float: left;
+}
+output{
+	border: 1px solid;
+	padding: 1px;
+	float: right;
+	align-items: center;
+}
+label{
+	border: 1px solid;
+	padding: 1px;
+	float: left;
+	align-items: center;
+}
+
+
+</style>
+<script type="text/javascript" src="audioGraph.js">
+
+</script>
+</head>
+<body>
+
+<div id="audioGraph">
+<br>
+<div id="menu">         
+<label for="soundFile">FILE</label>
+<input type="text" id="soundFile">
+<br>
+<form>
+  <br>
+<label for="fft1">FFT1</label>
+<input list="frequencyValue1" type="dropbox" id="fft1">
+<datalist id="frequencyValue1">
+<option value="32"></option> 
+<option value="64"></option>
+<option value="128"></option>
+<option value="256"></option>
+<option value="512"></option>
+<option value="1024"></option>
+<option value="2048"></option>
+<option value="4096"></ option>
+<option value="32768"></option>
+</datalist>
+</form>
+<form>
+  <br>
+<label for="fft2">FFT2</label>
+<input list="frequencyValue2" type="dropbox" id="fft2">
+<datalist id="frequencyValue2">
+<option value="32"></option> 
+<option value="64"></option>
+<option value="128"></option>
+<option value="256"></option>
+<option value="512"></option>
+<option value="1024"></option>
+<option value="2048"></option>
+<option value="4096"></option>
+<option value="32768"></option>
+</datalist>
+</form>
+
+</div>
+
+	<audio crossorigins = "anonymous" id="myPlayer"  width="500" height="" ></audio>
+<br>
+<canvas  id="CanvasFrequency" width="400" height="200"></canvas>
+<canvas  id="waveform" width="400" height="200"></canvas>
+<br>
+<div id="buttons">
+<button onclick="playSound()">Play local/compressed Sound</button>
+<button onclick="loadSound(soundUrl)">Play uncompressed Sound</button>
+  <button onclick="play()" id="musicButton" style="background-color: blue;border: 1px blue;">Play</button>
+	</div>
+  <div id="volumeDiv">
+  <fieldset>
+    <legend>Volume & panning and compressor </legend>
+  <label>Volume</label>
+  <input type="range" id="volume" value="1" min="0" step="1" oninput="changeVolume(this.value)">
+<output id="volumeGain">1</output>
+<br>
+<label for="Stereo">Stereo.. </label>
+<input type="range" id="Stereo" value="0" min="-1" max="1" oninput="changeStereo(this.value)">
+<output id="stereoOutput">0</output>
+<br>
+<label for="compressorButton">Compressor</label>
+<button id="compressorButton" onclick="active(event)" style="margin-left: 10px" style="float: right;" >Activated</button>
+  </fieldset>
+</div>
+
+<div id="frequency">
+    <fieldset>
+    <legend>Freqency</legend>
+    
+    <div class="controls">
+    <label>60Hz......</label>
+    <input type="range"
+           value="0" step="1" min="-30" max="30"
+           oninput="changeGain(this.value, 0);">
+    </input>
+    <output id="gain0">0 dB</output>
+  </div>
+  <div class="controls">
+   <label>170Hz....</label>
+   <input type="range"
+          value="0" step="1" min="-30" max="30"
+          oninput="changeGain(this.value, 1);">
+   </input>
+   <output id="gain1">0 dB</output>
+  </div>
+  <div class="controls">
+    <label>350Hz....</label>
+    <input type="range"
+           value="0" step="1" min="-30" max="30"
+           oninput="changeGain(this.value, 2);">
+    </input>
+    <output id="gain2">0 dB</output>
+  </div>
+  <div class="controls">
+    <label>1000Hz..</label>
+    <input type="range"
+           value="0" step="1" min="-30" max="30"
+           oninput="changeGain(this.value, 3);">
+    </input>
+    <output id="gain3">0 dB</output>
+  </div>
+<div class="controls">
+    <label>3500Hz..</label>
+    <input type="range"
+           value="0" step="1" min="-30" max="30"
+           oninput="changeGain(this.value, 4);">
+    </input>
+    <output id="gain4">0 dB</output>
+  </div>
+  <div class="controls">
+    <label>10000Hz</label>
+    <input type="range"
+           value="0" step="1" min="-30" max="30"
+           oninput="changeGain(this.value, 5);">
+    </input>
+    <output id="gain5">0 dB</output>
+  </div>
+</div>
+</fieldset>
+</div>
+</body>
+</html>
